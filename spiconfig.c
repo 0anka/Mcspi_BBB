@@ -1,9 +1,11 @@
 /*
-    MCSPI_BBB TI am355x ,
-    hardcoded driver for custom kernel build ,
-    without DT
-    Copyright (C) 2026 Malefax   
+     MCSPI_BBB TI am355x ,
+     hardcoded driver for custom kernel build ,
+     without DT.
+     Copyright (C) 2026 Malefax
+   
 */  
+
 #include<linux/kernel.h>
 #include<linux/module.h>
 #include<linux/fs.h>
