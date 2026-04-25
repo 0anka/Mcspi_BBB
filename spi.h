@@ -36,7 +36,8 @@
 #define MCSPI_RX3             0x00000178U
 #define MCSPSI_STATUS         (0xFU & 0x1U ) 
 #define MEM_ADDR(OFFSET) (MCSPI_CORE_ADDR+OFFSET)
-#define max_wl(wl)       ( wl % 0x20 )
+#define MAX_WL(WL)       ( ((WL) & 0x1F) )
+#define MAX_CLKD_POS(CL)     ( ((CL) & 0xF ) << (2))
 
 #define __x86
 #define armv7l CONFIG_ARM
@@ -299,18 +300,11 @@ void mcspi_sysconfig_autoidle ( struct mcspi_sysconfig *config ){
 void mcspi_ch0_conf ( struct mcspi_ch0_conf * config, u8 wl, u8 clkd ) {
 
     config->mcspi_reg.reg = 0;
-    if ( max_wl(wl) != 0x00 && max_wl(wl) !=0x01 && max_wl(wl)!= 0x02 ) {
-            if ( max_wl(wl) & 0x07 ) {
-                config->mcspi_reg.reg|=(1U << 7U | 1U << 8U | 1U << 9U);
-            }
-            if ( max_wl(wl) & 0x0F ) {
-                config->mcspi_reg.reg|=(1U << 7U | 1U << 8U | 1U << 9U | 1U << 10U);
-            }
-            if ( max_wl(wl) & 0x0F ){
+    config->mcspi_reg.reg |=MAX_CLKD_POS(clkd);
 
-                config->mcspi_reg.reg|=(1U << 7U | 1U << 8U | 1U << 9U | 1U << 10U|1U << 11U);
-            }     
-    }
+    if ( MAX_WL(wl) != 0x00 && MAX_WL(wl) !=0x01 && MAX_WL(wl)!= 0x02 ) {
+           config->mcspi_reg.reg |=(MAX_WL(wl) << 7 );
+       }
 
     switch( config->clk ) {
         case CG_POW_2:
