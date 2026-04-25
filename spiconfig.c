@@ -1,5 +1,5 @@
 /*
-     MCSPI_BBB TI am355x ,
+     MCSPI_BBB TI am335x ,
      hardcoded driver for custom kernel build ,
      without DT.
      Copyright (C) 2026 Malefax
