@@ -36,6 +36,7 @@
 #define MCSPI_RX3             0x00000178U
 #define MCSPSI_STATUS         (0xFU & 0x1U ) 
 #define MEM_ADDR(OFFSET) (MCSPI_CORE_ADDR+OFFSET)
+#define max_wl(wl)       ( wl % 0x20 )
 
 #define __x86
 #define armv7l CONFIG_ARM
@@ -83,6 +84,102 @@ enum Autoidle {
     AUTOIDLE
 };
 
+enum CLKG {
+        CG_POW_2,
+        CG_1
+};
+
+enum FFER {
+        DEACTIVE_BUF,
+        ACTIVE_BUF
+};
+
+enum FFEW {
+        T_BUF_NA,
+        T_BUF_A
+};
+
+enum TCS {
+        CC_0_5,
+        CC_1_5,
+        CC_2_5,
+        CC_3_5
+};
+
+enum SBPOL {
+        POLARITY_LOW,
+        POLARITY_HIGH
+};
+
+enum SBE {
+        DEFAULT_WL,
+        START_SBPOL
+};
+
+enum SPIENSLV {
+        EN_1,
+        EN_2,
+        EN_3,
+        EN_4
+};
+
+enum FORCE {
+        SPILIN_DRIVE_LOW,
+        SPILIN_DRIVE_HIGH
+};
+
+enum TURBO {
+        TUR_D,
+        TUR_A
+};                
+
+enum INPUT_S {
+        SPIDAT0,
+        SPIDAT1
+};
+
+enum DPE1 {
+        SPIDAT1_S,
+        SPIDAT1_NS
+};
+
+enum DPE0 {
+        SPIDAT0_S,
+        SPIDAT0_NS
+};
+
+enum DMAR {
+        R_DMA_DISABLED,
+        R_DMA_ENABLED 
+};
+
+enum DMAW {
+        RW_DMA_DISABLED,
+        RW_DMA_ENABLED
+};
+
+enum TRM {
+        TR,
+        RECEIVE_ONLY,
+        TRANSMIT_ONLY
+};
+
+enum EPOL {
+        SPIEN_HIGH,
+        SPIEN_LOW
+};
+
+enum POL {
+        SPICLK_HIGH,
+        SPICLK_LOW
+};
+
+enum PHA {
+        DATA_LATCH_ODD,
+        DATA_LATCH_EVEN
+};
+        
+
 typedef struct MCSPI_ADDR {
     void * __iomem regaddr;
     int err;
@@ -101,12 +198,35 @@ struct mcspi_status {
         spi_reg mcspi_reg;
 };
 
+struct mcspi_ch0_conf {
+        spi_reg mcspi_reg;
+        enum CLKG clk;
+        enum FFER ff;
+        enum FFEW fe;
+        enum TCS tc;
+        enum SBPOL sb;
+        enum SBE sbe;
+        enum SPIENSLV slv;
+        enum FORCE frc;
+        enum TURBO tu;
+        enum INPUT_S ins;
+        enum DPE1 dpe;
+        enum DPE0 dp0;
+        enum DMAR dmr;
+        enum DMAW dmw;
+        enum TRM tr;
+        enum EPOL ep;
+        enum POL pol;
+        enum PHA pha;
+
+};
+
 void mcspi_sysconfig_clockactivity ( struct mcspi_sysconfig *config);
 void mcspi_sysconfig_sidlemode (struct mcspi_sysconfig *config );
 void mcspi_sysconfig_softrest( struct mcspi_sysconfig *config );
 void mcspi_sysconfig_autoidle ( struct mcspi_sysconfig *config );
+void mcspi_ch0_conf ( struct mcspi_ch0_conf * config , u8 wl ,u8 clkd);
 bool regaddr ( mcspi_addr *addr,u32 base_addr );
-
 
 void mcspi_sysconfig_clockactivity (struct mcspi_sysconfig *config ){
         config->mcspi_reg.bytes.byte1 &= ~0x03;
@@ -176,7 +296,212 @@ void mcspi_sysconfig_autoidle ( struct mcspi_sysconfig *config ){
                    break;
            }
 }
+void mcspi_ch0_conf ( struct mcspi_ch0_conf * config, u8 wl, u8 clkd ) {
 
+    config->mcspi_reg.reg = 0;
+    if ( max_wl(wl) != 0x00 && max_wl(wl) !=0x01 && max_wl(wl)!= 0x02 ) {
+            if ( max_wl(wl) & 0x07 ) {
+                config->mcspi_reg.reg|=(1U << 7U | 1U << 8U | 1U << 9U);
+            }
+            if ( max_wl(wl) & 0x0F ) {
+                config->mcspi_reg.reg|=(1U << 7U | 1U << 8U | 1U << 9U | 1U << 10U);
+            }
+            if ( max_wl(wl) & 0x0F ){
+
+                config->mcspi_reg.reg|=(1U << 7U | 1U << 8U | 1U << 9U | 1U << 10U|1U << 11U);
+            }     
+    }
+
+    switch( config->clk ) {
+        case CG_POW_2:
+            config->mcspi_reg.bytes.byte3 &= ~(0x01 << 0x05);
+            break;
+        case CG_1:
+            config->mcspi_reg.bytes.byte3 |= (0x01 << 0x05);
+            break;
+    }
+
+    switch( config->ff ) {
+        case DEACTIVE_BUF:
+            config->mcspi_reg.bytes.byte3 &= ~(0x01 << 0x04);
+            break;
+        case ACTIVE_BUF:
+            config->mcspi_reg.bytes.byte3 |= (0x01 << 0x04);
+            break;
+    }
+
+    switch ( config->tc ) {
+        case CC_0_5:
+            config->mcspi_reg.bytes.byte3 &= ~(0x01 << 0x02);
+            config->mcspi_reg.bytes.byte3 &= ~(0x01 << 0x01);
+            break;
+        case CC_1_5:
+            config->mcspi_reg.bytes.byte3 |= (0x01 << 0x01);
+            config->mcspi_reg.bytes.byte3 &= ~(0x01 << 0x02);
+            break;
+        case CC_2_5:
+            config->mcspi_reg.bytes.byte3 |= (0x01 << 0x02);
+            config->mcspi_reg.bytes.byte3 &= ~(0x01 << 0x01);
+            break;
+        case CC_3_5:
+            config->mcspi_reg.bytes.byte3 |= (0x01 << 0x02);
+            config->mcspi_reg.bytes.byte3 |= (0x01 << 0x01);
+            break;
+    }
+
+    switch ( config->sb ) {
+        case POLARITY_LOW:
+            config->mcspi_reg.bytes.byte3 &= ~(0x01 << 0x00);
+            break;
+        case POLARITY_HIGH:
+            config->mcspi_reg.bytes.byte3 |= (0x01 << 0x00);
+            break;
+    }
+
+    switch ( config->sbe ) {
+        case DEFAULT_WL:
+            config->mcspi_reg.bytes.byte2 &= ~(0x01 << 0x07);
+            break;
+        case START_SBPOL:
+            config->mcspi_reg.bytes.byte2 |= (0x01 << 0x07);
+            break;
+    }
+
+    switch ( config->slv ) {
+        case EN_1:
+            config->mcspi_reg.bytes.byte2 &= ~(0x01 << 0x06);
+            config->mcspi_reg.bytes.byte2 &= ~(0x01 << 0x05);
+            break;
+        case EN_2:
+            config->mcspi_reg.bytes.byte2 |= (0x01 << 0x05);
+            config->mcspi_reg.bytes.byte2 &= ~(0x01 << 0x06);
+            break;
+        case EN_3:
+            config->mcspi_reg.bytes.byte2 |= (0x01 << 0x06);
+            config->mcspi_reg.bytes.byte2 &= ~(0x01 << 0x05);
+            break;
+        case EN_4:
+            config->mcspi_reg.bytes.byte2 |= (0x01 << 0x06);
+            config->mcspi_reg.bytes.byte2 |= (0x01 << 0x05);
+            break;
+    }
+
+    switch ( config->frc ) {
+        case SPILIN_DRIVE_LOW:
+            config->mcspi_reg.bytes.byte2 &= ~(0x01 << 0x04);
+            break;
+        case SPILIN_DRIVE_HIGH:
+            config->mcspi_reg.bytes.byte2 |= (0x01 << 0x04);
+            break;
+    }
+
+    switch ( config->ins ) {
+        case SPIDAT0:
+            config->mcspi_reg.bytes.byte2 &= ~(0x01 << 0x02);
+            break;
+        case SPIDAT1:
+            config->mcspi_reg.bytes.byte2 |= (0x01 << 0x02);
+            break;
+    }
+
+    switch (config->dpe ) {
+        case SPIDAT1_S:
+            config->mcspi_reg.bytes.byte2 &= ~(0x01 << 0x01);
+            break;
+        case SPIDAT1_NS:
+            config->mcspi_reg.bytes.byte2 |= (0x01 << 0x01);
+            break;
+    }
+
+    switch ( config->dp0 ) {
+        case SPIDAT0_S:
+            config->mcspi_reg.bytes.byte2 &= ~(0x01 << 0x00);
+            break;
+        case SPIDAT0_NS:
+            config->mcspi_reg.bytes.byte2 |= (0x01 << 0x00);
+            break;
+    }
+
+    switch ( config->dmr ) {
+        case R_DMA_DISABLED:
+            config->mcspi_reg.bytes.byte1 &= ~(0x01 << 0x07);
+            break;
+        case R_DMA_ENABLED:
+            config->mcspi_reg.bytes.byte1 |= (0x01 << 0x07);
+            break;
+    }
+
+    switch ( config->dmw ) {
+        case RW_DMA_DISABLED:
+            config->mcspi_reg.bytes.byte1 &= ~(0x01 << 0x06);
+            break;
+        case RW_DMA_ENABLED:
+            config->mcspi_reg.bytes.byte1 |= (0x01 << 0x06);
+            break;
+    }
+
+    switch ( config->tr ) {
+        case TR:
+            config->mcspi_reg.bytes.byte1 &= ~(0x01 << 0x05);
+            config->mcspi_reg.bytes.byte1 &= ~(0x01 << 0x04);
+            break;
+        case RECEIVE_ONLY:
+            config->mcspi_reg.bytes.byte1 &= ~(0x01 << 0x05);
+            config->mcspi_reg.bytes.byte1 |= (0x01 << 0x04);
+            break;
+        case TRANSMIT_ONLY:
+            config->mcspi_reg.bytes.byte1 |= (0x01 << 0x05);
+            config->mcspi_reg.bytes.byte1 &= ~(0x01 << 0x04);
+            break;
+    }
+
+    switch ( config->ep ) {
+        case SPIEN_HIGH:
+            config->mcspi_reg.bytes.byte0 &= ~(0x01 << 0x06);
+            break;
+        case SPIEN_LOW:
+            config->mcspi_reg.bytes.byte0 |= (0x01 << 0x06);
+            break;
+    }
+
+    switch ( config->pol ) {
+        case SPICLK_HIGH:
+            config->mcspi_reg.bytes.byte0 &= ~(0x01 << 0x01);
+            break;
+        case SPICLK_LOW:
+            config->mcspi_reg.bytes.byte0 |= (0x01 << 0x01);
+            break;
+    }
+
+    switch ( config->pha ) {
+        case DATA_LATCH_ODD:
+            config->mcspi_reg.bytes.byte0 &= ~(0x01 << 0x00);
+            break;
+        case DATA_LATCH_EVEN:
+            config->mcspi_reg.bytes.byte0 |= (0x01 << 0x00);
+            break;
+    }
+
+    switch ( config->fe ) {
+        case T_BUF_NA:
+            config->mcspi_reg.bytes.byte3  &= ~( 0x01 << 0x03 );
+            break;
+        case T_BUF_A:
+            config->mcspi_reg.bytes.byte3 |= ( 0x01 << 0x03 );
+            break;
+    }
+
+    switch ( config->tu ) {
+        case TUR_D:
+            config->mcspi_reg.bytes.byte2 &= ~( 0x01 << 0x03 );
+            break;
+        case TUR_A:
+            config->mcspi_reg.bytes.byte2 |= ( 0x01 << 0x03 );
+            break;
+    }         
+
+
+}
 bool regaddr ( mcspi_addr *addr,u32 base_addr ) {
         if (!addr ){
                 return true;
