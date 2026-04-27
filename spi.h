@@ -297,7 +297,7 @@ void mcspi_sysconfig_autoidle ( struct mcspi_sysconfig *config ){
            }
 }
 void mcspi_ch0_conf ( struct mcspi_ch0_conf * config, u8 wl, u8 clkd ) {
-
+    config->mcspi_reg.reg=0;
     config->mcspi_reg.reg |=MAX_CLKD_POS(clkd);
 
     if ( MAX_WL(wl) != 0x00 && MAX_WL(wl) !=0x01 && MAX_WL(wl)!= 0x02 ) {

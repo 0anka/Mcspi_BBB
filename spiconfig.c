@@ -24,12 +24,36 @@
 #include "padconf.h"
 mcspi_addr addr;
 mcspi_addr cmr_addr;
+mcspi_addr ch0_addr;
 struct mcspi_sysconfig registor = {
         .cflag=OCP_ON_AND_FC_ON,
         .sflag=SMART_IDLE,
         .rflag=MODULE_RESET,
         .aflag=AUTOIDLE
 };
+
+struct mcspi_ch0_conf  ch0_reg = {
+        .pol=SPICLK_HIGH,
+        .pha=DATA_LATCH_ODD,                      //POL=0,PHA=0 Mode 0 up
+        .clk=CG_1,
+        .ff=DEACTIVE_BUF,
+        .fe=T_BUF_NA,
+        .tc=CC_0_5,
+        .sb=POLARITY_LOW,
+        .sbe=DEFAULT_WL,
+        .slv=EN_1,
+        .frc=SPILIN_DRIVE_LOW,
+        .tu=TUR_D,
+        .ins=SPIDAT0,
+        .dpe=SPIDAT1_S,
+        .dp0=SPIDAT0_S,
+        .dmr=R_DMA_DISABLED,
+        .dmw=RW_DMA_DISABLED,
+        .tr=TR,
+        .ep=SPIEN_LOW
+    
+};                
+
 
 struct mcspi_status status = {
         .mcspi_reg = {
@@ -95,7 +119,8 @@ static int __init entrymodule(void) {
                 mcspi_sysconfig_sidlemode,\
                 mcspi_sysconfig_softrest,\
                 mcspi_sysconfig_autoidle };
-
+                
+                registor.mcspi_reg.reg=0;
                 spi_sysconfig[0](&registor);
                 spi_sysconfig[1](&registor);
                 spi_sysconfig[2](&registor);     
