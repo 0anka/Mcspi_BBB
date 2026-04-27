@@ -230,7 +230,6 @@ void mcspi_ch0_conf ( struct mcspi_ch0_conf * config , u8 wl ,u8 clkd);
 bool regaddr ( mcspi_addr *addr,u32 base_addr );
 
 void mcspi_sysconfig_clockactivity (struct mcspi_sysconfig *config ){
-        config->mcspi_reg.bytes.byte1 &= ~0x03;
 
         switch (config->cflag){
             case OCP_OFF_AND_FC_OFF:
@@ -299,12 +298,14 @@ void mcspi_sysconfig_autoidle ( struct mcspi_sysconfig *config ){
 }
 void mcspi_ch0_conf ( struct mcspi_ch0_conf * config, u8 wl, u8 clkd ) {
 
-    config->mcspi_reg.reg = 0;
     config->mcspi_reg.reg |=MAX_CLKD_POS(clkd);
 
     if ( MAX_WL(wl) != 0x00 && MAX_WL(wl) !=0x01 && MAX_WL(wl)!= 0x02 ) {
            config->mcspi_reg.reg |=(MAX_WL(wl) << 7 );
        }
+    else {
+            config->mcspi_reg.reg |=(MAX_WL(0x07) << 7);
+    }        
 
     switch( config->clk ) {
         case CG_POW_2:

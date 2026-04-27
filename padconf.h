@@ -69,7 +69,6 @@ struct conf_spi {
 void mcspi_conf_spi (struct conf_spi *config ,enum Mode mode);
 
 void mcspi_conf_spi ( struct conf_spi * config ,enum Mode mode) {
-        config->cmr_reg.reg=0;
         config->cmr_reg.reg|=mode;
         switch ( config->sctr ) {
                 case SLOW:
