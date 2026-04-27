@@ -303,9 +303,8 @@ void mcspi_ch0_conf ( struct mcspi_ch0_conf * config, u8 wl, u8 clkd ) {
     if ( MAX_WL(wl) != 0x00 && MAX_WL(wl) !=0x01 && MAX_WL(wl)!= 0x02 ) {
            config->mcspi_reg.reg |=(MAX_WL(wl) << 7 );
        }
-    else {
-            config->mcspi_reg.reg |=(MAX_WL(0x07) << 7);
-    }        
+    
+    config->mcspi_reg.reg |=(0x07 << 7);
 
     switch( config->clk ) {
         case CG_POW_2:
