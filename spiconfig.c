@@ -75,6 +75,10 @@ static int __init entrymodule(void) {
                 pr_err("PAD_CONF regaddr failed: %d\n" ,cmr_addr.err);
                 return cmr_addr.err;
         }
+        if ( regaddr(&ch0_addr,MCSPI_CH0CONF)  ){
+                pr_err("CH0_CONF regaddr failed: %d\n",ch0_addr.err);
+                return ch0_addr.err;
+        }        
                 mcspi_conf_spi(&spi0_spiclk,MODE0); 
                 mcspi_conf_spi(&spi0_d0,MODE0); 
                 mcspi_conf_spi(&spi0_d1,MODE0); 
@@ -86,6 +90,11 @@ static int __init entrymodule(void) {
               iowrite32(spi0_d1.cmr_reg.reg,cmr_addr.regaddr+CONF_SPI0_d1 );
               iowrite32(spi0_cs0.cmr_reg.reg,cmr_addr.regaddr+CONF_SPI0_CS0 );
               iowrite32(spi0_cs1.cmr_reg.reg,cmr_addr.regaddr+CONF_SPI0_CS1 );
+              udelay(50);
+
+                
+              mcspi_ch0_conf ( &ch0_reg ,0x07 ,0x01);
+              iowrite32(ch0_reg.mcspi_reg.reg,ch0_addr.regaddr+MCSPI_CH0CONF);
               udelay(50);
 
 
@@ -154,7 +163,11 @@ timeout:
         }
         if ( cmr_addr.regaddr ){
                 iounmap(cmr_addr.regaddr);
-        }        
+        }
+        if ( ch0_addr.regaddr ){
+                iounmap(ch0_addr.regaddr);
+        }
+
         return -ETIMEDOUT;
 error:        
         
