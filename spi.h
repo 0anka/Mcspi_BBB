@@ -179,7 +179,44 @@ enum PHA {
         DATA_LATCH_ODD,
         DATA_LATCH_EVEN
 };
-        
+
+enum FDDA {
+        MCSPI_TX_RX_ENABLED,
+        MCSPI_DAFTX_DAFRX
+};
+
+enum MOA {
+        MWL_ENABLED,
+        MWL_FIFO
+};
+
+enum INITDLY {
+        NO_DELAY_SPI,
+        SPI_BUS_4,
+        SPI_BUS_8,
+        SPI_BUS_16,
+        SPI_BUS_32
+};
+
+enum SYSTEMT {
+        FUNCTION_MODE,
+        SYSTEST_MODE
+};
+
+enum MS {
+        MASTER_G_SPICLK,
+        SLAVE_R_SPICLK
+};
+
+enum PIN34 {
+        SPIEN_CS,
+        SPIEN
+};
+
+enum SINGLE {
+        MULTI_CH_MASTER,
+        ONE_CH_MASTER
+};                
 
 typedef struct MCSPI_ADDR {
     void * __iomem regaddr;
@@ -221,6 +258,17 @@ struct mcspi_ch0_conf {
         enum PHA pha;
 
 };
+struct module_ctrl {
+        spi_reg mcspi_ctrl;
+        enum FDDA fda;
+        enum MOA moa;
+        enum INITDLY init;
+        enum SYSTEMT sys;
+        enum MS ms;
+        enum PIN34 pin;
+        enum SINGLE sin;
+};
+
 
 void mcspi_sysconfig_clockactivity ( struct mcspi_sysconfig *config);
 void mcspi_sysconfig_sidlemode (struct mcspi_sysconfig *config );
