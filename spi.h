@@ -180,7 +180,7 @@ enum PHA {
         DATA_LATCH_EVEN
 };
 
-enum FDDA {
+enum FDAA {
         MCSPI_TX_RX_ENABLED,
         MCSPI_DAFTX_DAFRX
 };
@@ -259,8 +259,8 @@ struct mcspi_ch0_conf {
 
 };
 struct module_ctrl {
-        spi_reg mcspi_ctrl;
-        enum FDDA fda;
+        spi_reg mcspi_reg;
+        enum FDAA fda;
         enum MOA moa;
         enum INITDLY init;
         enum SYSTEMT sys;
@@ -275,6 +275,7 @@ void mcspi_sysconfig_sidlemode (struct mcspi_sysconfig *config );
 void mcspi_sysconfig_softrest( struct mcspi_sysconfig *config );
 void mcspi_sysconfig_autoidle ( struct mcspi_sysconfig *config );
 void mcspi_ch0_conf ( struct mcspi_ch0_conf * config , u8 wl ,u8 clkd);
+void mcspi_ctrl_conf( struct module_ctrl * config );
 bool regaddr ( mcspi_addr *addr,u32 base_addr );
 
 void mcspi_sysconfig_clockactivity (struct mcspi_sysconfig *config ){
@@ -544,6 +545,18 @@ void mcspi_ch0_conf ( struct mcspi_ch0_conf * config, u8 wl, u8 clkd ) {
 
 
 }
+void mcspi_ctrl_conf( struct module_ctrl * config ){
+        switch ( config->fda ){
+            case MCSPI_TX_RX_ENABLED:
+                config->mcspi_reg.bytes.byte2 &= ~( 0x01 << 0x01 );
+                break;
+                
+            case MCSPI_DAFTX_DAFRX:
+                config->mcspi_reg.bytes.byte2 |= ( 0x01 << 0x01 );
+                break;
+
+        }
+}        
 bool regaddr ( mcspi_addr *addr,u32 base_addr ) {
         if (!addr ){
                 return true;
