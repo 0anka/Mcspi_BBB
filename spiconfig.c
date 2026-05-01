@@ -25,6 +25,7 @@
 mcspi_addr addr;
 mcspi_addr cmr_addr;
 mcspi_addr ch0_addr;
+mcspi_addr ctrl_addr;
 struct mcspi_sysconfig registor = {
         .cflag=OCP_ON_AND_FC_ON,
         .sflag=SMART_IDLE,
@@ -52,6 +53,16 @@ struct mcspi_ch0_conf  ch0_reg = {
         .tr=TR,
         .ep=SPIEN_LOW
     
+};
+
+struct module_ctrl ctrl_reg = {
+        .fda=MCSPI_TX_RX_ENABLED,
+        .moa=MWL_ENABLED,
+        .init=NO_DELAY_SPI,
+        .sys=FUNCTION_MODE,
+        .ms=MASTER_G_SPICLK,
+        .pin=SPIEN_CS,
+        .sin=MULTI_CH_MASTER
 };                
 
 
@@ -78,6 +89,10 @@ static int __init entrymodule(void) {
         if ( regaddr(&ch0_addr,MCSPI_CH0CONF)  ){
                 pr_err("CH0_CONF regaddr failed: %d\n",ch0_addr.err);
                 return ch0_addr.err;
+        }
+        if ( regaddr(&ctrl_addr,MCSPI_MODULCTRL)  ){
+                pr_err("CH0_CONF regaddr failed: %d\n",ctrl_addr.err);
+                return ctrl_addr.err;
         }        
                 mcspi_conf_spi(&spi0_spiclk,MODE0); 
                 mcspi_conf_spi(&spi0_d0,MODE0); 
@@ -97,7 +112,10 @@ static int __init entrymodule(void) {
               iowrite32(ch0_reg.mcspi_reg.reg,ch0_addr.regaddr+MCSPI_CH0CONF);
               udelay(50);
 
-
+              
+              mcspi_ctrl_conf( &ctrl_reg );
+              iowrite32(ctrl_reg.mcspi_reg.reg,ctrl_addr.regaddr+MCSPI_MODULCTRL);
+              udelay(50);
 
         if ( regaddr(&addr,MCSPI_CORE_ADDR) ) {
                 pr_err("MCSPI: regaddr failed: %d\n", addr.err);
@@ -167,7 +185,9 @@ timeout:
         if ( ch0_addr.regaddr ){
                 iounmap(ch0_addr.regaddr);
         }
-
+        if ( ctrl_addr.regaddr ){
+                iounmap(ctrl_addr.regaddr);
+        }
         return -ETIMEDOUT;
 error:        
         

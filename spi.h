@@ -546,17 +546,99 @@ void mcspi_ch0_conf ( struct mcspi_ch0_conf * config, u8 wl, u8 clkd ) {
 
 }
 void mcspi_ctrl_conf( struct module_ctrl * config ){
+        config->mcspi_reg.reg=0;
         switch ( config->fda ){
             case MCSPI_TX_RX_ENABLED:
-                config->mcspi_reg.bytes.byte2 &= ~( 0x01 << 0x01 );
+                config->mcspi_reg.bytes.byte1 &= ~( 0x01 << 0x00 );
                 break;
                 
             case MCSPI_DAFTX_DAFRX:
-                config->mcspi_reg.bytes.byte2 |= ( 0x01 << 0x01 );
+                config->mcspi_reg.bytes.byte1 |= ( 0x01 << 0x00 );
                 break;
 
         }
-}        
+
+        switch ( config->moa ){
+                case MWL_ENABLED:
+                   config->mcspi_reg.bytes.byte0 &= ~( 0x01 << 0x07 );
+                   break;
+                 case MWL_FIFO:
+                   config->mcspi_reg.bytes.byte0 |= ( 0x01 << 0x07 );
+                   break;
+        }
+
+        switch ( config->init ){
+                case NO_DELAY_SPI:
+                    config->mcspi_reg.bytes.byte0 &= ~( 0x01 << 0x04 );
+                    config->mcspi_reg.bytes.byte0 &= ~( 0x01 << 0x05 );
+                    config->mcspi_reg.bytes.byte0 &= ~( 0x01 << 0x06 );
+                    break;
+
+                 case SPI_BUS_4:
+                    config->mcspi_reg.bytes.byte0 |= ( 0x01 << 0x04);
+                    config->mcspi_reg.bytes.byte0 &= ~( 0x01 << 0x05 );
+                    config->mcspi_reg.bytes.byte0 &= ~( 0x01 << 0x06 );
+                    break;
+
+                  case SPI_BUS_8:
+                    config->mcspi_reg.bytes.byte0 &= ~( 0x01 << 0x04 );
+                    config->mcspi_reg.bytes.byte0 |=  ( 0x01 << 0x05 );
+                    config->mcspi_reg.bytes.byte0 &= ~( 0x01 << 0x06 );
+                    break;
+
+                  case SPI_BUS_16:
+                    config->mcspi_reg.bytes.byte0 &= ~( 0x01 << 0x06 );
+                    config->mcspi_reg.bytes.byte0 |= ( 0x01 << 0x04 );
+                    config->mcspi_reg.bytes.byte0 |= (0x01 << 0x05 );
+                    break;
+
+                  case SPI_BUS_32:
+                    config->mcspi_reg.bytes.byte0 |= (0x01 << 0x06 );
+                    config->mcspi_reg.bytes.byte0 &= ~( 0x01 << 0x05 );
+                    config->mcspi_reg.bytes.byte0 &= ~( 0x01 << 0x04 );
+                    break;
+        }           
+        switch ( config->sys ) {
+                case  FUNCTION_MODE:
+                    config->mcspi_reg.bytes.byte0 &= ~(0x01 << 0x03);
+                    break;
+                case SYSTEST_MODE:
+                    config->mcspi_reg.bytes.byte0 |= (0x01 << 0x03 );
+                    break;
+        }              
+        
+        switch ( config->ms ) {
+                case MASTER_G_SPICLK:
+                     config->mcspi_reg.bytes.byte0 &= ~(0x01 << 0x02);
+                     break;
+                
+                case SLAVE_R_SPICLK:
+                     config->mcspi_reg.bytes.byte0 |= ( 0x01 << 0x02 );
+                     break;
+
+       }
+
+      switch ( config->pin ) {
+              case SPIEN_CS:
+              config->mcspi_reg.bytes.byte0 &= ~(0x01 << 0x01);
+              break;
+
+              case SPIEN:
+              config->mcspi_reg.bytes.byte0 |= ( 0x01 << 0x01 );
+              break;
+      }          
+       switch ( config->sin ){
+              case MULTI_CH_MASTER:
+              config->mcspi_reg.bytes.byte0 &= ~(0x01 << 0x00 );
+              break;
+              
+              case ONE_CH_MASTER:
+              config->mcspi_reg.bytes.byte0 |= ( 0x01 << 0x00 );
+              break;
+       }
+
+}
+
 bool regaddr ( mcspi_addr *addr,u32 base_addr ) {
         if (!addr ){
                 return true;
