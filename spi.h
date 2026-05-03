@@ -216,7 +216,7 @@ enum PIN34 {
 enum SINGLE {
         MULTI_CH_MASTER,
         ONE_CH_MASTER
-};                
+};
 
 typedef struct MCSPI_ADDR {
     void * __iomem regaddr;
