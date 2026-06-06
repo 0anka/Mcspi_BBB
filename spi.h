@@ -218,6 +218,42 @@ enum SINGLE {
         ONE_CH_MASTER
 };
 
+enum RXFFF {
+        FIFO_BUF_NOT_FULL,
+        FIFO_BUF_FULL
+
+};
+
+enum RXFFE {
+        RX_FIFO_BUF_NOT_FULL,
+        RX_FIFO_BUF_FULL
+};
+
+enum TXFFF {
+        TX_FIFO_BUF_NOT_FULL,
+        TX_FIFO_BUF_FULL
+};
+
+enum TXFFE {
+        TXE_FIFO_BUF_NOT_FULL,
+        TXE_FIFO_BUF_FULL
+};
+
+enum EOT {
+        BEGIN_TANSFER,
+        END_TANSFER
+};
+
+enum TXS {
+        REG_FULL,
+        REG_EMPTY
+};
+
+enum RXS {
+        RX_REG_EMPTY,
+        RX_REG_FULL
+};                
+
 typedef struct MCSPI_ADDR {
     void * __iomem regaddr;
     int err;
@@ -268,6 +304,17 @@ struct module_ctrl {
         enum PIN34 pin;
         enum SINGLE sin;
 };
+
+struct mcspi_ch0stat {
+        spi_reg ch0stat;
+        enum RXFFF rxff;
+        enum RXFFE rxffe;
+        enum TXFFF txfff;
+        enum TXFFE txffe;
+        enum EOT eot;
+        enum TXS txs;
+        enum RXS rxs;
+};        
 
 
 void mcspi_sysconfig_clockactivity ( struct mcspi_sysconfig *config);
