@@ -306,7 +306,7 @@ struct module_ctrl {
 };
 
 struct mcspi_ch0stat {
-        spi_reg ch0stat;
+        spi_reg mcspi_reg;
         enum RXFFF rxff;
         enum RXFFE rxffe;
         enum TXFFF txfff;
@@ -690,6 +690,7 @@ bool regaddr ( mcspi_addr *addr,u32 base_addr ) {
         if (!addr ){
                 return true;
         }        
+        addr->regaddr=NULL;
         addr->regaddr=ioremap(base_addr,MCSPI_REGISTER_SIZE);
         if (!(addr->regaddr)) {
                   addr->err=-ENOMEM;
@@ -698,5 +699,22 @@ bool regaddr ( mcspi_addr *addr,u32 base_addr ) {
         addr->err=0;           
         return false;
 }
+
+#if defined(__FreeBSD__ )
+bool regaddr ( mcspi_addr *addr,u32 base_addr ) {
+        if (!addr ){
+                return true;
+        }
+        addr->regaddr=NULL;
+        addr->regaddr=pmap_mapdev((vm_paddr_t)base_addr,(vm_size_t)MCSPI_REGISTER_SIZE);
+        if (!(addr->regaddr)) {
+                  addr->err=ENOMEM;
+                  return true;
+                  }
+        addr->err=0;           
+        return false;
+}
+
+#endif
 
 #endif
