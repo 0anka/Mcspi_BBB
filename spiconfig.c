@@ -5,6 +5,15 @@
      Copyright (C) 2026 Malefax
    
 */  
+#if defined(__FreeBSD__)
+#include <sys/module.h>
+#include <sys/bus.h>
+#include <sys/kernel.h>
+#include <sys/param.h>
+#include <sys/types.h>
+#include <sys/system.h>
+#include <sys/errno.h>
+#endif
 
 #include<linux/kernel.h>
 #include<linux/module.h>
@@ -22,18 +31,28 @@
 #include "spi.h"
 #include "irq.h"
 #include "padconf.h"
-mcspi_addr addr;
-mcspi_addr cmr_addr;
-mcspi_addr ch0_addr;
-mcspi_addr ctrl_addr;
-struct mcspi_sysconfig registor = {
+#if defined(__FreeBSD__)
+static int module_event(module_t curr_mod,int modevent_type, void *arg);
+
+moduledata_t module_reg_sysinit = {
+        .name="NONE",
+        .evhand=module_event,
+        .priv=NULL
+};                
+#endif
+
+static mcspi_addr addr;
+static mcspi_addr cmr_addr;
+//mcspi_addr ch0_addr;
+//mcspi_addr ctrl_addr;
+static struct mcspi_sysconfig registor = {
         .cflag=OCP_ON_AND_FC_ON,
         .sflag=SMART_IDLE,
         .rflag=MODULE_RESET,
         .aflag=AUTOIDLE
 };
 
-struct mcspi_ch0_conf  ch0_reg = {
+static struct mcspi_ch0_conf  ch0_reg = {
         .pol=SPICLK_HIGH,
         .pha=DATA_LATCH_ODD,                      //POL=0,PHA=0 Mode 0 up
         .clk=CG_1,
@@ -55,7 +74,7 @@ struct mcspi_ch0_conf  ch0_reg = {
     
 };
 
-struct module_ctrl ctrl_reg = {
+static struct module_ctrl ctrl_reg = {
         .fda=MCSPI_TX_RX_ENABLED,
         .moa=MWL_ENABLED,
         .init=NO_DELAY_SPI,
@@ -66,7 +85,7 @@ struct module_ctrl ctrl_reg = {
 };                
 
 
-struct mcspi_status status = {
+static struct mcspi_status status = {
         .mcspi_reg = {
                 .reg = 0
         }                
@@ -82,18 +101,25 @@ static int __init entrymodule(void) {
         u32 read;
         int error;
         unsigned long int timestamp;
+        void (*spi_sysconfig[4])( struct mcspi_sysconfig *config ) = {
+                mcspi_sysconfig_clockactivity,\
+                mcspi_sysconfig_sidlemode,\
+                mcspi_sysconfig_softrest,\
+                mcspi_sysconfig_autoidle };
+                
         if ( regaddr(&cmr_addr,CONTROL_MODULE_ADDR) ){
                 pr_err("PAD_CONF regaddr failed: %d\n" ,cmr_addr.err);
                 return cmr_addr.err;
         }
-        if ( regaddr(&ch0_addr,MCSPI_CH0CONF)  ){
-                pr_err("CH0_CONF regaddr failed: %d\n",ch0_addr.err);
-                return ch0_addr.err;
+        if ( regaddr(&addr, MCSPI_CORE_ADDR)   ){
+                pr_err("MCSPI_CORE regaddr failed: %d\n",addr.err);
+                if (cmr_addr.regaddr){
+                      iounmap(cmr_addr.regaddr);
+                      cmr_addr.regaddr = NULL;
+                }
+
+                return addr.err;
         }
-        if ( regaddr(&ctrl_addr,MCSPI_MODULCTRL)  ){
-                pr_err("CH0_CONF regaddr failed: %d\n",ctrl_addr.err);
-                return ctrl_addr.err;
-        }        
                 mcspi_conf_spi(&spi0_spiclk,MODE0); 
                 mcspi_conf_spi(&spi0_d0,MODE0); 
                 mcspi_conf_spi(&spi0_d1,MODE0); 
@@ -108,22 +134,7 @@ static int __init entrymodule(void) {
               udelay(50);
 
                 
-              mcspi_ch0_conf ( &ch0_reg ,0x07 ,0x01);
-              iowrite32(ch0_reg.mcspi_reg.reg,ch0_addr.regaddr+MCSPI_CH0CONF);
-              udelay(50);
-
-              
-              mcspi_ctrl_conf( &ctrl_reg );
-              iowrite32(ctrl_reg.mcspi_reg.reg,ctrl_addr.regaddr+MCSPI_MODULCTRL);
-              udelay(50);
-
-        if ( regaddr(&addr,MCSPI_CORE_ADDR) ) {
-                pr_err("MCSPI: regaddr failed: %d\n", addr.err);
-                return addr.err;
-                }
-
-                registor.mcspi_reg.reg = 0;
-                pr_info("MCSPI: Mapped @ %p\n", addr.regaddr);
+               //registor.mcspi_reg.reg = 0;
                 timestamp=jiffies+2*HZ;
 
             do {
@@ -140,18 +151,10 @@ static int __init entrymodule(void) {
             }       
     
                 pr_info("MCSPI: SYSSTATUS ready: 0x%08x\n", read);
-    
-               void (*spi_sysconfig[4])( struct mcspi_sysconfig *config ) = {
-                mcspi_sysconfig_clockactivity,\
-                mcspi_sysconfig_sidlemode,\
-                mcspi_sysconfig_softrest,\
-                mcspi_sysconfig_autoidle };
-                
+               
                 registor.mcspi_reg.reg=0;
-                spi_sysconfig[0](&registor);
-                spi_sysconfig[1](&registor);
+                registor.rflag=MODULE_RESET;
                 spi_sysconfig[2](&registor);     
-                spi_sysconfig[3](&registor);
                 iowrite32 (registor.mcspi_reg.reg,addr.regaddr+MCSPI_SYSCONFIG); 
                 timestamp=jiffies+2*HZ;
                 do {
@@ -165,7 +168,29 @@ static int __init entrymodule(void) {
                 if (!(read & BIT(0))){
                         pr_info("softreset not set");
                         goto timeout;
-                }        
+                }
+
+                registor.mcspi_reg.reg=0;
+                registor.rflag=NORMAL_MODE;
+                spi_sysconfig[2](&registor);
+                iowrite32 (registor.mcspi_reg.reg,addr.regaddr+MCSPI_SYSCONFIG);
+
+                registor.mcspi_reg.reg=0;
+                spi_sysconfig[0](&registor);     
+                spi_sysconfig[1](&registor);     
+                spi_sysconfig[3](&registor);     
+                iowrite32 (registor.mcspi_reg.reg,addr.regaddr+MCSPI_SYSCONFIG);
+                
+
+              mcspi_ctrl_conf( &ctrl_reg );
+              iowrite32(ctrl_reg.mcspi_reg.reg,addr.regaddr+MCSPI_MODULCTRL);
+              udelay(50);
+
+              mcspi_ch0_conf ( &ch0_reg ,0x07 ,0x01);
+              iowrite32(ch0_reg.mcspi_reg.reg,addr.regaddr+MCSPI_CH0CONF);
+              udelay(50);
+
+
 
                 pr_info("SOFTRESET successfully\t:%x",registor.mcspi_reg.bytes.byte0);
                 if ((error=request_irq(SPI_IRQ_NUMBER,irq_handler,IRQF_SHARED,"my_device",(void *)(irq_handler)))<0){
@@ -178,33 +203,48 @@ static int __init entrymodule(void) {
 timeout:
         if (addr.regaddr){
                 iounmap(addr.regaddr);
+                addr.regaddr=NULL;
         }
         if ( cmr_addr.regaddr ){
                 iounmap(cmr_addr.regaddr);
+                cmr_addr.regaddr=NULL;
         }
-        if ( ch0_addr.regaddr ){
-                iounmap(ch0_addr.regaddr);
-        }
-        if ( ctrl_addr.regaddr ){
-                iounmap(ctrl_addr.regaddr);
-        }
+        
         return -ETIMEDOUT;
 error:        
         
         free_irq(SPI_IRQ_NUMBER,(void *)(irq_handler));
+        if (addr.regaddr){
+                iounmap(addr.regaddr);
+                addr.regaddr=NULL;
+        }
+        if ( cmr_addr.regaddr ){
+                iounmap(cmr_addr.regaddr);
+                cmr_addr.regaddr=NULL;
+        }
+        
         return error; 
 }
 static void __exit exitmodule(void){
         
-        free_irq(SPI_IRQ_NUMBER,(void *)(irq_handler)); 
-        if (addr.regaddr){
-            iounmap(addr.regaddr);
- }
-if ( cmr_addr.regaddr ){
+ free_irq(SPI_IRQ_NUMBER,(void *)(irq_handler)); 
+ 
+if ( addr.regaddr ){
+                iounmap(addr.regaddr);
+                addr.regaddr=NULL;
+        }
+
+ if ( cmr_addr.regaddr ){
                 iounmap(cmr_addr.regaddr);
-        }        
+                cmr_addr.regaddr=NULL;
+        }
+
         pr_info("%sMCSPI: Unloaded\n",__func__);
-}        
+}
+
+#if defined(__FreeBSD__)
+DECLARE_MODULE("NONE",&data,SI_SUB_EXEC,SI_SUB_KLD);
+#endif
 
 module_init(entrymodule);
 module_exit(exitmodule);
