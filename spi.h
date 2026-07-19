@@ -39,6 +39,10 @@
 #define MAX_WL(WL) (((WL) & 0x1F))
 #define MAX_CLKD_POS(CL) (((CL) & 0xF) << (2))
 
+#if defined(__FreeBSD__)
+#define __iowrite32(value,addr) (*(volatile uint32_t *)(addr)=(uint32_t) (value))
+#define __ioread32(addr) (*(volatile uint32_t *)(base))
+#endif
 #define __x86
 #define armv7l CONFIG_ARM
 
@@ -142,11 +146,17 @@ enum TXS { REG_FULL, REG_EMPTY };
 
 enum RXS { RX_REG_EMPTY, RX_REG_FULL };
 
+#if defined(__FreeBSD__)
+typedef struct MCSPI_ADDR {
+  void * regaddr;
+  int err;
+} mcspi_addr;
+#else
 typedef struct MCSPI_ADDR {
   void *__iomem regaddr;
   int err;
 } mcspi_addr;
-
+#endif
 struct mcspi_sysconfig {
   spi_reg mcspi_reg;
   enum Clockactivity cflag;
@@ -202,35 +212,39 @@ struct mcspi_ch0stat {
   enum RXS rxs;
 };
 
-void mcspi_sysconfig_clockactivity(struct mcspi_sysconfig *config);
-void mcspi_sysconfig_sidlemode(struct mcspi_sysconfig *config);
-void mcspi_sysconfig_softrest(struct mcspi_sysconfig *config);
-void mcspi_sysconfig_autoidle(struct mcspi_sysconfig *config);
-void mcspi_ch0_conf(struct mcspi_ch0_conf *config, u8 wl, u8 clkd);
-void mcspi_ctrl_conf(struct module_ctrl *config);
+
+
+void mcspi_sysconfig_clockactivity ( struct mcspi_sysconfig *config);
+void mcspi_sysconfig_sidlemode (struct mcspi_sysconfig *config );
+void mcspi_sysconfig_softrest( struct mcspi_sysconfig *config );
+void mcspi_sysconfig_autoidle ( struct mcspi_sysconfig *config );
+void mcspi_ch0_conf ( struct mcspi_ch0_conf * config , u8 wl ,u8 clkd);
+void mcspi_ctrl_conf( struct module_ctrl * config );
 bool regaddr(mcspi_addr *addr, u32 base_addr);
 
-void mcspi_sysconfig_clockactivity(struct mcspi_sysconfig *config) {
+void mcspi_sysconfig_clockactivity (struct mcspi_sysconfig *config ){
 
-  switch (config->cflag) {
-  case OCP_OFF_AND_FC_OFF:
-    config->mcspi_reg.bytes.byte1 &= ~(0x01);
-    config->mcspi_reg.bytes.byte1 &= ~(0x01 << 0x01);
-    break;
-  case OCP_ON_AND_FC_OFF:
-    config->mcspi_reg.bytes.byte1 &= ~(0x01 << 0x01);
-    config->mcspi_reg.bytes.byte1 |= 0x01;
-    break;
-  case OCP_OFF_AND_FC_ON:
-    config->mcspi_reg.bytes.byte1 &= ~(0x01);
-    config->mcspi_reg.bytes.byte1 |= (0x01 << 0x01);
-    break;
-  case OCP_ON_AND_FC_ON:
-    config->mcspi_reg.bytes.byte1 |= (0x01);
-    config->mcspi_reg.bytes.byte1 |= (0x01 << 0x01);
-    break;
-  }
-}
+        switch (config->cflag){
+            case OCP_OFF_AND_FC_OFF:
+                    config->mcspi_reg.bytes.byte1 &= ~(0x01);
+                    config->mcspi_reg.bytes.byte1 &= ~(0x01 << 0x01);
+                    break;
+            case OCP_ON_AND_FC_OFF:
+                    config->mcspi_reg.bytes.byte1 &= ~(0x01 << 0x01 );
+                    config->mcspi_reg.bytes.byte1 |= 0x01;
+                    break;
+            case OCP_OFF_AND_FC_ON:
+                    config->mcspi_reg.bytes.byte1 &= ~(0x01);
+                    config->mcspi_reg.bytes.byte1 |= (0x01 << 0x01);
+                    break;
+            case OCP_ON_AND_FC_ON:
+                    config->mcspi_reg.bytes.byte1 |= (0x01);
+                    config->mcspi_reg.bytes.byte1 |= (0x01 << 0x01 );
+                    break;
+        }
+      }
+
+  
 
 void mcspi_sysconfig_sidlemode(struct mcspi_sysconfig *config) {
 
@@ -559,7 +573,7 @@ void mcspi_ctrl_conf(struct module_ctrl *config) {
     break;
   }
 }
-
+#if defined(__linux__)
 bool regaddr(mcspi_addr *addr, u32 base_addr) {
   if (!addr) {
     return true;
@@ -573,7 +587,7 @@ bool regaddr(mcspi_addr *addr, u32 base_addr) {
   addr->err = 0;
   return false;
 }
-
+#endif
 #if defined(__FreeBSD__)
 bool regaddr(mcspi_addr *addr, u32 base_addr) {
   if (!addr) {

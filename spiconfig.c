@@ -13,7 +13,7 @@
 #include <sys/param.h>
 #include <sys/system.h>
 #include <sys/types.h>
-#endif
+#else
 
 #include "irq.h"
 #include "padconf.h"
@@ -31,17 +31,15 @@
 #include <linux/timex.h>
 #include <linux/types.h>
 #include <linux/types.h>
+#endif
 #if defined(__FreeBSD__)
 static int module_event(module_t curr_mod, int modevent_type, void *arg);
 
 moduledata_t module_reg_sysinit = {
     .name = "NONE", .evhand = module_event, .priv = NULL};
 #endif
-
 static mcspi_addr addr;
 static mcspi_addr cmr_addr;
-// mcspi_addr ch0_addr;
-// mcspi_addr ctrl_addr;
 static struct mcspi_sysconfig registor = {.cflag = OCP_ON_AND_FC_ON,
                                           .sflag = SMART_IDLE,
                                           .rflag = MODULE_RESET,
@@ -66,7 +64,6 @@ static struct mcspi_ch0_conf ch0_reg = {
     .dmw = RW_DMA_DISABLED,
     .tr = TR,
     .ep = SPIEN_LOW
-
 };
 
 static struct module_ctrl ctrl_reg = {.fda = MCSPI_TX_RX_ENABLED,
@@ -77,14 +74,59 @@ static struct module_ctrl ctrl_reg = {.fda = MCSPI_TX_RX_ENABLED,
                                       .pin = SPIEN_CS,
                                       .sin = MULTI_CH_MASTER};
 
-static struct mcspi_status status = {.mcspi_reg = {.reg = 0}};
 
-DEFINE_CMR(spiclk, SELECTDOWN, PULLDOWN, OUTPUT); // SCLK
-DEFINE_CMR(d0, SELECTUP, PULLUP, BOTH);           // MISO
-DEFINE_CMR(d1, SELECTDOWN, PULLDOWN, OUTPUT);     // MOSI
-DEFINE_CMR(cs0, SELECTUP, PULLUP, OUTPUT);        // CS0
-DEFINE_CMR(cs1, SELECTUP, PULLUP, OUTPUT);        // CS1
 
+
+static struct mcspi_status status = {
+        .mcspi_reg = {
+                .reg = 0
+        }                
+};
+
+DEFINE_CMR(spiclk,SELECTDOWN,PULLDOWN,OUTPUT);       //SCLK
+DEFINE_CMR(d0,SELECTUP,PULLUP,BOTH);                 //MISO
+DEFINE_CMR(d1,SELECTDOWN,PULLDOWN,OUTPUT);           //MOSI
+DEFINE_CMR(cs0,SELECTUP,PULLUP,OUTPUT);              //CS0
+DEFINE_CMR(cs1,SELECTUP,PULLUP,OUTPUT);              //CS1
+#if defined(__FreeBSD__) 
+static int module_event(module_t curr_mod,int modevent_type, void *arg){
+        switch(modevent_type){
+                case MOD_LOAD:
+                    void (*spi_sysconfig[4])( struct mcspi_sysconfig *config ) = {
+                    mcspi_sysconfig_clockactivity,\
+                    mcspi_sysconfig_sidlemode,\
+                    mcspi_sysconfig_softrest,\
+                    mcspi_sysconfig_autoidle };
+                        if ( regaddr(&cmr_addr,CONTROL_MODULE_ADDR) ){
+                                pr_err("PAD_CONF regaddr failed: %d\n" ,cmr_addr.err);
+                                return cmr_addr.err;
+                            }               
+                       if ( regaddr(&addr, MCSPI_CORE_ADDR)   ){
+                                pr_err("MCSPI_CORE regaddr failed: %d\n",addr.err);
+                                if (cmr_addr.regaddr){
+                                        pmap_unmapdev(cmr_addr.regaddr,(vm_size_t)MCSPI_REGISTER_SIZE);
+                                        cmr_addr.regaddr = NULL;
+                                
+                       }
+                              return addr.err;
+
+                       }
+                                mcspi_conf_spi(&spi0_spiclk,MODE0); 
+                                mcspi_conf_spi(&spi0_d0,MODE0); 
+                                mcspi_conf_spi(&spi0_d1,MODE0); 
+                                mcspi_conf_spi(&spi0_cs0,MODE0); 
+                                mcspi_conf_spi(&spi0_cs1,MODE0);
+                              __iowrite32(spi0_spiclk.cmr_reg.reg, cmr_addr.regaddr + CONF_SPI0_SCLK);
+                              __iowrite32(spi0_d0.cmr_reg.reg, cmr_addr.regaddr + CONF_SPI0_d0);
+                              __iowrite32(spi0_d1.cmr_reg.reg, cmr_addr.regaddr + CONF_SPI0_d1);
+                              __iowrite32(spi0_cs0.cmr_reg.reg, cmr_addr.regaddr + CONF_SPI0_CS0);
+                              __iowrite32(spi0_cs1.cmr_reg.reg, cmr_addr.regaddr + CONF_SPI0_CS1);
+                               DELAY(50);
+
+
+                                
+                               
+#else 
 static int __init entrymodule(void) {
   u32 read;
   int error;
@@ -224,12 +266,13 @@ static void __exit exitmodule(void) {
   pr_info("%sMCSPI: Unloaded\n", __func__);
 }
 
-#if defined(__FreeBSD__)
-DECLARE_MODULE("NONE", &data, SI_SUB_EXEC, SI_SUB_KLD);
-#endif
-
 module_init(entrymodule);
 module_exit(exitmodule);
 MODULE_AUTHOR("HARIHAR");
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("NONE");
+
+#endif
+#if defined(__FreeBSD__)
+DECLARE_MODULE("NONE", &data, SI_SUB_EXEC, SI_SUB_KLD);
+#endif
