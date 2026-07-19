@@ -34,7 +34,7 @@
 #endif
 #if defined(__FreeBSD__)
 static int module_event(module_t curr_mod, int modevent_type, void *arg);
-
+#define BIT(nr) (1UL << (nr))
 moduledata_t module_reg_sysinit = {
     .name = "NONE", .evhand = module_event, .priv = NULL};
 #endif
@@ -90,6 +90,7 @@ DEFINE_CMR(cs0,SELECTUP,PULLUP,OUTPUT);              //CS0
 DEFINE_CMR(cs1,SELECTUP,PULLUP,OUTPUT);              //CS1
 #if defined(__FreeBSD__) 
 static int module_event(module_t curr_mod,int modevent_type, void *arg){
+        int error;
         switch(modevent_type){
                 case MOD_LOAD:
                     void (*spi_sysconfig[4])( struct mcspi_sysconfig *config ) = {
@@ -98,11 +99,11 @@ static int module_event(module_t curr_mod,int modevent_type, void *arg){
                     mcspi_sysconfig_softrest,\
                     mcspi_sysconfig_autoidle };
                         if ( regaddr(&cmr_addr,CONTROL_MODULE_ADDR) ){
-                                pr_err("PAD_CONF regaddr failed: %d\n" ,cmr_addr.err);
+                                uprintf("PAD_CONF regaddr failed: %d\n" ,cmr_addr.err);
                                 return cmr_addr.err;
                             }               
                        if ( regaddr(&addr, MCSPI_CORE_ADDR)   ){
-                                pr_err("MCSPI_CORE regaddr failed: %d\n",addr.err);
+                                uprintf("MCSPI_CORE regaddr failed: %d\n",addr.err);
                                 if (cmr_addr.regaddr){
                                         pmap_unmapdev(cmr_addr.regaddr,(vm_size_t)MCSPI_REGISTER_SIZE);
                                         cmr_addr.regaddr = NULL;
@@ -123,8 +124,87 @@ static int module_event(module_t curr_mod,int modevent_type, void *arg){
                               __iowrite32(spi0_cs1.cmr_reg.reg, cmr_addr.regaddr + CONF_SPI0_CS1);
                                DELAY(50);
 
+                               timestamp = jiffies + 2 * HZ;
 
-                                
+                                        do {
+
+                                             read = __ioread32(addr.regaddr + MCSPI_SYSSTATUS);
+                                                      if (read & BIT(0)) {
+                                                            break;
+                                                       }
+                                                       cpu_relax();
+                                        } while (time_before(jiffies, timestamp));
+ 
+                                               if (!(read & BIT(0))) {
+                                                       goto timeout;
+                                               }
+
+                                uprintf("MCSPI: SYSSTATUS ready: 0x%08x\n", read);
+                                registor.mcspi_reg.reg = 0;
+                                registor.rflag = MODULE_RESET;
+                                spi_sysconfig[2](&registor);
+                                __iowrite32(registor.mcspi_reg.reg, addr.regaddr + MCSPI_SYSCONFIG);
+                                timestamp = jiffies + 2 * HZ;
+                                         do {
+                                              read = __ioread32(addr.regaddr + MCSPI_SYSSTATUS);
+                                                        if (read & BIT(0)) {
+                                                                break;
+                                                         }
+                                                         cpu_relax();
+                                        } while (time_before(jiffies, timestamp));    
+                                                if (!(read & BIT(0))) {
+                                                        uprintf("softreset not set");
+                                                        goto timeout;
+                                                }
+                                registor.mcspi_reg.reg = 0;
+                                registor.rflag = NORMAL_MODE;
+                                spi_sysconfig[2](&registor);
+                                __iowrite32(registor.mcspi_reg.reg, addr.regaddr + MCSPI_SYSCONFIG);
+
+                                registor.mcspi_reg.reg = 0;
+                                spi_sysconfig[0](&registor);
+                                spi_sysconfig[1](&registor);
+                                spi_sysconfig[3](&registor);
+                                __iowrite32(registor.mcspi_reg.reg, addr.regaddr + MCSPI_SYSCONFIG);
+
+                                mcspi_ctrl_conf(&ctrl_reg);
+                                __iowrite32(ctrl_reg.mcspi_reg.reg, addr.regaddr + MCSPI_MODULCTRL);
+                                DELAY(50);
+
+                                mcspi_ch0_conf(&ch0_reg, 0x07, 0x01);
+                                __iowrite32(ch0_reg.mcspi_reg.reg, addr.regaddr + MCSPI_CH0CONF);
+                                DELAY(50);
+                                return 0;
+                case MOD_UNLAOD:
+                             if (addr.regaddr) {
+                                    pmap_unmapdev(addr.regaddr,(vm_size_t)MCSPI_REGISTER_SIZE);
+                                    addr.regaddr = NULL;
+                             }
+
+                             if (cmr_addr.regaddr) {
+                                    pmap_unmapdev(cmr_addr.regaddr,(vm_size_t)MCSPI_REGISTER_SIZE);
+                                    cmr_addr.regaddr = NULL;
+                             }     
+
+                                 uprintf("%sMCSPI: Unloaded\n", __func__);
+                                 return 0;
+                default:
+                             error=EOPNOTSUPP;
+                             break;
+        }
+        return error;
+        timeout:
+                if (addr.regaddr) {
+                pmap_unmapdev(addr.regaddr,(vm_size_t)MCSPI_REGISTER_SIZE);
+                addr.regaddr = NULL;
+              }
+                if (cmr_addr.regaddr) {
+                pmap_unmapdev(cmr_addr.regaddr,(vm_size_t)MCSPI_REGISTER_SIZE);
+                cmr_addr.regaddr = NULL;
+              }
+
+  return ETIMEDOUT;
+}
                                
 #else 
 static int __init entrymodule(void) {
